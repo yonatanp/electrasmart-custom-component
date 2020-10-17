@@ -1,0 +1,8 @@
+{
+  "domain": "electrasmart",
+  "name": "Electra-Smart AC",
+  "documentation": "https://pypi.org/project/electrasmart/#hass_component",
+  "dependencies": [],
+  "codeowners": ["@yonatanp"],
+  "requirements": ["electrasmart>=0.2"]
+}
