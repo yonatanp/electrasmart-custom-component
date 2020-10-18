@@ -110,6 +110,8 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def current_temperature(self):
         """Return the current temperature."""
+        if self._status is None:
+            return None
         diag_l2 = self.status.get("DIAG_L2", {}).get("DIAG_L2", {})
         value = diag_l2.get("I_CALC_AT") or diag_l2.get("I_RAT")
         if value is not None:
@@ -120,6 +122,8 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def target_temperature(self):
         """Return the temperature we try to reach."""
+        if self._status is None:
+            return None
         value = self._operoper.get("SPT")
         if value is not None:
             value = int(value)
@@ -149,6 +153,8 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def hvac_mode(self):
         """Return hvac operation ie. heat, cool mode."""
+        if self._status is None:
+            return None
         operoper = self._operoper
         if operoper.get("TURN_ON_OFF", "OFF") == "OFF" or "AC_MODE" not in operoper:
             return HVAC_MODE_OFF
@@ -183,6 +189,8 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def fan_mode(self):
         """Returns the current fan mode (low, high, auto etc)"""
+        if self._status is None:
+            return None
         operoper = self._operoper
         if operoper.get("TURN_ON_OFF", "OFF") == "OFF" or "FANSPD" not in operoper:
             return FAN_OFF
@@ -215,8 +223,6 @@ class ElectraSmartClimate(ClimateEntity):
 
     def set_hvac_mode(self, hvac_mode):
         _LOGGER.debug(f"setting hvac mode to {hvac_mode}")
-        _LOGGER.warning(self.HVAC_MODE_MAPPING)
-        _LOGGER.warning(self.HVAC_MODE_MAPPING_INV)
         ac_mode = self.HVAC_MODE_MAPPING_INV[hvac_mode]
         _LOGGER.debug(f"setting hvac mode to {hvac_mode} (ac_mode {ac_mode})")
         self._renew_sid_if_needed()
