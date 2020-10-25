@@ -26,10 +26,11 @@ Next, add configuration to the `configuration.yaml` such as the following:
 ...
 climate:
   - platform: electrasmart
-    name: MyLivingRoomAC
     imei: "2b9500000..."
     token: "1fd4a2e86..."
-    ac_id: 12345
+    acs:
+      - ac_id: 1234
+        name: MyLivingRoomAC
 ...
 ```
 
@@ -39,6 +40,7 @@ Troubleshooting
 --
 
 It will probably not work out of the box just yet. It is recommended that you enable detailed logging by adding the following configuration to your `configuration.yaml` while debugging the setup process:
+
 ```yaml
 ...
 logger:
