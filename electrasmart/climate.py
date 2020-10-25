@@ -27,8 +27,8 @@ _LOGGER = logging.getLogger(__name__)
 CONF_IMEI = "imei"
 CONF_TOKEN = "token"
 CONF_ACS = "acs"
-CONF_AC_ID = "ac_id"
-CONF_AC_NAME = "ac_name"
+CONF_AC_ID = "id"
+CONF_AC_NAME = "name"
 
 DEFAULT_NAME = "ElectraSmart"
 
@@ -76,8 +76,8 @@ class ElectraSmartClimate(ClimateEntity):
 
     def __init__(self, ac, imei, token):
         """Initialize the thermostat."""
-        self._name = ac.name
-        self.ac = AC(imei, token, ac.ac_id)
+        self._name = ac[CONF_AC_NAME]
+        self.ac = AC(imei, token, ac[CONF_AC_ID])
         self._status = None
         self._last_sid_renew = None
 

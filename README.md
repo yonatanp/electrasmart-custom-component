@@ -29,7 +29,7 @@ climate:
     imei: "2b9500000..."
     token: "1fd4a2e86..."
     acs:
-      - ac_id: 1234
+      - id: 1234
         name: MyLivingRoomAC
 ...
 ```
