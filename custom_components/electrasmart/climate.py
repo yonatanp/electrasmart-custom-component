@@ -41,6 +41,9 @@ CONF_ACS = "acs"
 CONF_AC_ID = "id"
 CONF_AC_NAME = "name"
 
+CONF_ELECTRA_API_VERBOSE = "electra_api_verbose"
+DEFAULT_ELECTRA_API_VERBOSE = False
+
 DEFAULT_NAME = "ElectraSmart"
 
 AC_SCHEMA = vol.Schema(
@@ -53,6 +56,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_IMEI): cv.string,
         vol.Required(CONF_TOKEN): cv.string,
         vol.Required(CONF_ACS): vol.All(cv.ensure_list, [AC_SCHEMA]),
+        vol.Optional(
+            CONF_ELECTRA_API_VERBOSE, default=DEFAULT_ELECTRA_API_VERBOSE,
+        ): cv.boolean,
         # TODO: add presets (cool, fan, night...)
         # vol.Optional(
         #     CONF_AWAY_TEMPERATURE, default=DEFAULT_AWAY_TEMPERATURE
@@ -72,8 +78,9 @@ async def async_setup_platform(
     async_add_entities: Callable,
     discovery_info: Optional[DiscoveryInfoType] = None,
 ) ->None:
-    # TODO: api_verbosity config
-    ElectraAPI.GLOBAL_VERBOSE = True
+    # Note: since this is a global thing, if at least one entity activates it, it's on
+    if config.get(CONF_ELECTRA_API_VERBOSE):
+        ElectraAPI.GLOBAL_VERBOSE = True
 
     """Set up the ElectraSmartClimate platform."""
     _LOGGER.debug("Setting up the ElectraSmart climate platform")
@@ -81,9 +88,6 @@ async def async_setup_platform(
     imei = config.get(CONF_IMEI)
     token = config.get(CONF_TOKEN)
     acs = [ElectraSmartClimate(ac, imei, token) for ac in config.get(CONF_ACS)]
-
-    # TODO: api_verbosity config
-    ElectraAPI.GLOBAL_VERBOSE = True
 
     async_add_entities(acs, update_before_add=True)
 
