@@ -221,7 +221,11 @@ class ElectraSmartClimate(ClimateEntity):
         if self._status is None:
             return None
         operoper = self._operoper
-        if operoper.get("TURN_ON_OFF", "OFF") == "OFF" or "FANSPD" not in operoper:
+        if operoper.get("TURN_ON_OFF") == "OFF":
+            _LOGGER.debug(f"fan_mode: returning FAN_OFF - TURN_ON_OFF == 'OFF'")
+            return FAN_OFF
+        if "FANSPD" not in operoper:
+            _LOGGER.debug(f"fan_mode: returning FAN_OFF - FANSPD not in operoper, here is operoper: {operoper}")
             return FAN_OFF
         mode = operoper.get("FANSPD")
         value = self.FAN_MODE_MAPPING[mode]
