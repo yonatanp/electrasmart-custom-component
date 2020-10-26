@@ -142,10 +142,9 @@ class ElectraSmartClimate(ClimateEntity):
         "STBY": HVAC_MODE_OFF,
         "COOL": HVAC_MODE_COOL,
         "FAN": HVAC_MODE_FAN_ONLY,
-        # TODO: find the below
-        "???1": HVAC_MODE_DRY,
-        "???2": HVAC_MODE_HEAT,
-        "???3": HVAC_MODE_HEAT_COOL,
+        "DRY": HVAC_MODE_DRY,
+        "HEAT": HVAC_MODE_HEAT,
+        "AUTO": HVAC_MODE_HEAT_COOL,
     }
 
     HVAC_MODE_MAPPING_INV = {v: k for k, v in HVAC_MODE_MAPPING.items()}
@@ -154,9 +153,14 @@ class ElectraSmartClimate(ClimateEntity):
     def hvac_mode(self):
         """Return hvac operation ie. heat, cool mode."""
         if self._status is None:
+            _LOGGER.debug(f"hvac_mode: status is None, returning None")
             return None
         operoper = self._operoper
-        if operoper.get("TURN_ON_OFF", "OFF") == "OFF" or "AC_MODE" not in operoper:
+        if operoper.get("TURN_ON_OFF") == "OFF":
+            _LOGGER.debug(f"hvac_mode: returning HVAC_MODE_OFF - TURN_ON_OFF == 'OFF'")
+            return HVAC_MODE_OFF
+        if "AC_MODE" not in operoper:
+            _LOGGER.debug(f"hvac_mode: returning HVAC_MODE_OFF - AC_MODE not in operoper, here is operoper: {operoper}")
             return HVAC_MODE_OFF
         mode = operoper.get("AC_MODE")
         value = self.HVAC_MODE_MAPPING[mode]
@@ -180,7 +184,7 @@ class ElectraSmartClimate(ClimateEntity):
     FAN_MODE_MAPPING = {
         "AUTO": FAN_AUTO,
         "LOW": FAN_LOW,
-        "???1": FAN_MEDIUM,
+        "MED": FAN_MEDIUM,
         "HIGH": FAN_HIGH,
     }
 
