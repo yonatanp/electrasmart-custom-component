@@ -39,10 +39,11 @@ Add configuration to the `configuration.yaml` such as the following:
 ...
 climate:
   - platform: electrasmart
-    name: MyLivingRoomAC
     imei: "2b9500000..."
     token: "1fd4a2e86..."
-    ac_id: 12345
+    acs:
+      - id: 1234
+        name: MyLivingRoomAC
 ...
 ```
 
@@ -50,7 +51,8 @@ Note: if you want to configure multiple ACs under the same account, this is poss
 
 ## Troubleshooting
 
-It will probably not work out of the box just yet. It is recommended that you enable detailed logging by adding the following configuration to your `configuration.yaml` while debugging the setup process:
+It might not work out of the box just yet. It is recommended that you enable detailed logging by adding the following configuration to your `configuration.yaml` while debugging the setup process:
+
 ```yaml
 ...
 logger:
@@ -61,3 +63,14 @@ logger:
 ```
 
 See more details on the [Logger integration](https://www.home-assistant.io/integrations/logger/) in the official docs.
+
+To get even more verbose messages from the Electra API, set this configuration flag in one of your configured ElectraSmart climate entities, e.g.:
+```yaml
+...
+climate:
+  - platform: electrasmart
+    ...
+    electra_api_verbose: true
+...
+```
+This is a global configuration. Once activated at least once, it will stay this way until complete restart of the service.

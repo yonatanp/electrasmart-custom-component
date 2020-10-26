@@ -3,6 +3,9 @@ import logging
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from typing import Any, Callable, Dict, Optional
+
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_PASSWORD,
@@ -13,6 +16,14 @@ from homeassistant.components.climate import (
     ClimateEntity,
     PLATFORM_SCHEMA,
 )
+
+from homeassistant.helpers.typing import (
+    ConfigType,
+    DiscoveryInfoType,
+    HomeAssistantType,
+)
+
+
 from homeassistant.components.climate.const import (
     CURRENT_HVAC_OFF, CURRENT_HVAC_IDLE, CURRENT_HVAC_COOL, CURRENT_HVAC_HEAT, CURRENT_HVAC_DRY,
     HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_FAN_ONLY, HVAC_MODE_DRY, HVAC_MODE_HEAT, HVAC_MODE_HEAT_COOL,
@@ -24,19 +35,30 @@ from electrasmart import AC, ElectraAPI
 _LOGGER = logging.getLogger(__name__)
 
 
-CONF_NAME = "name"
 CONF_IMEI = "imei"
 CONF_TOKEN = "token"
-CONF_AC_ID = "ac_id"
+CONF_ACS = "acs"
+CONF_AC_ID = "id"
+CONF_AC_NAME = "name"
+
+CONF_ELECTRA_API_VERBOSE = "electra_api_verbose"
+DEFAULT_ELECTRA_API_VERBOSE = False
 
 DEFAULT_NAME = "ElectraSmart"
 
+AC_SCHEMA = vol.Schema(
+    {vol.Required(CONF_AC_ID): cv.string, vol.Required(CONF_AC_NAME, default=DEFAULT_NAME): cv.string}
+)
+
+
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
-        vol.Required(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Required(CONF_IMEI): cv.string,
         vol.Required(CONF_TOKEN): cv.string,
-        vol.Required(CONF_AC_ID): cv.positive_int,
+        vol.Required(CONF_ACS): vol.All(cv.ensure_list, [AC_SCHEMA]),
+        vol.Optional(
+            CONF_ELECTRA_API_VERBOSE, default=DEFAULT_ELECTRA_API_VERBOSE,
+        ): cv.boolean,
         # TODO: add presets (cool, fan, night...)
         # vol.Optional(
         #     CONF_AWAY_TEMPERATURE, default=DEFAULT_AWAY_TEMPERATURE
@@ -50,29 +72,32 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
+async def async_setup_platform(
+    hass: HomeAssistantType,
+    config: ConfigType,
+    async_add_entities: Callable,
+    discovery_info: Optional[DiscoveryInfoType] = None,
+) ->None:
+    # Note: since this is a global thing, if at least one entity activates it, it's on
+    if config.get(CONF_ELECTRA_API_VERBOSE):
+        ElectraAPI.GLOBAL_VERBOSE = True
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the ElectraSmartClimate platform."""
     _LOGGER.debug("Setting up the ElectraSmart climate platform")
-    name = config.get(CONF_NAME)
+    session = async_get_clientsession(hass)
     imei = config.get(CONF_IMEI)
     token = config.get(CONF_TOKEN)
-    ac_id = config.get(CONF_AC_ID)
-    # TODO: api_verbosity config
-    ElectraAPI.GLOBAL_VERBOSE = True
+    acs = [ElectraSmartClimate(ac, imei, token) for ac in config.get(CONF_ACS)]
 
-    add_entities(
-        [ElectraSmartClimate(name, imei, token, ac_id)]
-    )
-
+    async_add_entities(acs, update_before_add=True)
 
 class ElectraSmartClimate(ClimateEntity):
     SID_RENEW_INTERVAL = 20
 
-    def __init__(self, name, imei, token, ac_id):
+    def __init__(self, ac, imei, token):
         """Initialize the thermostat."""
-        self._name = name
-        self.ac = AC(imei, token, ac_id)
+        self._name = ac[CONF_AC_NAME]
+        self.ac = AC(imei, token, ac[CONF_AC_ID])
         self._status = None
         self._last_sid_renew = None
 
@@ -142,10 +167,9 @@ class ElectraSmartClimate(ClimateEntity):
         "STBY": HVAC_MODE_OFF,
         "COOL": HVAC_MODE_COOL,
         "FAN": HVAC_MODE_FAN_ONLY,
-        # TODO: find the below
-        "???1": HVAC_MODE_DRY,
-        "???2": HVAC_MODE_HEAT,
-        "???3": HVAC_MODE_HEAT_COOL,
+        "DRY": HVAC_MODE_DRY,
+        "HEAT": HVAC_MODE_HEAT,
+        "AUTO": HVAC_MODE_HEAT_COOL,
     }
 
     HVAC_MODE_MAPPING_INV = {v: k for k, v in HVAC_MODE_MAPPING.items()}
@@ -154,9 +178,14 @@ class ElectraSmartClimate(ClimateEntity):
     def hvac_mode(self):
         """Return hvac operation ie. heat, cool mode."""
         if self._status is None:
+            _LOGGER.debug(f"hvac_mode: status is None, returning None")
             return None
         operoper = self._operoper
-        if operoper.get("TURN_ON_OFF", "OFF") == "OFF" or "AC_MODE" not in operoper:
+        if operoper.get("TURN_ON_OFF") == "OFF":
+            _LOGGER.debug(f"hvac_mode: returning HVAC_MODE_OFF - TURN_ON_OFF == 'OFF'")
+            return HVAC_MODE_OFF
+        if "AC_MODE" not in operoper:
+            _LOGGER.debug(f"hvac_mode: returning HVAC_MODE_OFF - AC_MODE not in operoper, here is operoper: {operoper}")
             return HVAC_MODE_OFF
         mode = operoper.get("AC_MODE")
         value = self.HVAC_MODE_MAPPING[mode]
@@ -180,7 +209,7 @@ class ElectraSmartClimate(ClimateEntity):
     FAN_MODE_MAPPING = {
         "AUTO": FAN_AUTO,
         "LOW": FAN_LOW,
-        "???1": FAN_MEDIUM,
+        "MED": FAN_MEDIUM,
         "HIGH": FAN_HIGH,
     }
 
@@ -192,7 +221,11 @@ class ElectraSmartClimate(ClimateEntity):
         if self._status is None:
             return None
         operoper = self._operoper
-        if operoper.get("TURN_ON_OFF", "OFF") == "OFF" or "FANSPD" not in operoper:
+        if operoper.get("TURN_ON_OFF") == "OFF":
+            _LOGGER.debug(f"fan_mode: returning FAN_OFF - TURN_ON_OFF == 'OFF'")
+            return FAN_OFF
+        if "FANSPD" not in operoper:
+            _LOGGER.debug(f"fan_mode: returning FAN_OFF - FANSPD not in operoper, here is operoper: {operoper}")
             return FAN_OFF
         mode = operoper.get("FANSPD")
         value = self.FAN_MODE_MAPPING[mode]
@@ -217,25 +250,30 @@ class ElectraSmartClimate(ClimateEntity):
         _LOGGER.debug(f"setting new temperature to {temperature}")
         if temperature is None:
             return
-        self._renew_sid_if_needed()
-        self.ac.modify_oper(temperature=temperature)
+        self._do_oper(temperature=temperature)
         _LOGGER.debug(f"new temperature was set to {temperature}")
 
     def set_hvac_mode(self, hvac_mode):
         _LOGGER.debug(f"setting hvac mode to {hvac_mode}")
         ac_mode = self.HVAC_MODE_MAPPING_INV[hvac_mode]
         _LOGGER.debug(f"setting hvac mode to {hvac_mode} (ac_mode {ac_mode})")
-        self._renew_sid_if_needed()
-        self.ac.modify_oper(ac_mode=ac_mode)
+        self._do_oper(ac_mode=ac_mode)
         _LOGGER.debug(f"hvac mode was set to {hvac_mode} (ac_mode {ac_mode})")
 
     def set_fan_mode(self, fan_mode):
         _LOGGER.debug(f"setting fan mode to {fan_mode}")
         fan_speed = self.FAN_MODE_MAPPING_INV[fan_mode]
         _LOGGER.debug(f"setting fan mode to {fan_mode} (fan_speed {fan_speed})")
-        self._renew_sid_if_needed()
-        self.ac.modify_oper(fan_speed=fan_speed)
+        self._do_oper(fan_speed=fan_speed)
         _LOGGER.debug(f"fan mode was set to {fan_mode} (fan_speed {fan_speed})")
+
+    def _do_oper(self, **kwargs):
+        self._renew_sid_if_needed()
+        self.ac.modify_oper(**kwargs)
+        time.sleep(2)
+        self.update()
+        time.sleep(3)
+        self.update()
 
     # data fetch mechanism
 
