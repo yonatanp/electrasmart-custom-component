@@ -242,25 +242,30 @@ class ElectraSmartClimate(ClimateEntity):
         _LOGGER.debug(f"setting new temperature to {temperature}")
         if temperature is None:
             return
-        self._renew_sid_if_needed()
-        self.ac.modify_oper(temperature=temperature)
+        self._do_oper(temperature=temperature)
         _LOGGER.debug(f"new temperature was set to {temperature}")
 
     def set_hvac_mode(self, hvac_mode):
         _LOGGER.debug(f"setting hvac mode to {hvac_mode}")
         ac_mode = self.HVAC_MODE_MAPPING_INV[hvac_mode]
         _LOGGER.debug(f"setting hvac mode to {hvac_mode} (ac_mode {ac_mode})")
-        self._renew_sid_if_needed()
-        self.ac.modify_oper(ac_mode=ac_mode)
+        self._do_oper(ac_mode=ac_mode)
         _LOGGER.debug(f"hvac mode was set to {hvac_mode} (ac_mode {ac_mode})")
 
     def set_fan_mode(self, fan_mode):
         _LOGGER.debug(f"setting fan mode to {fan_mode}")
         fan_speed = self.FAN_MODE_MAPPING_INV[fan_mode]
         _LOGGER.debug(f"setting fan mode to {fan_mode} (fan_speed {fan_speed})")
-        self._renew_sid_if_needed()
-        self.ac.modify_oper(fan_speed=fan_speed)
+        self._do_oper(fan_speed=fan_speed)
         _LOGGER.debug(f"fan mode was set to {fan_mode} (fan_speed {fan_speed})")
+
+    def _do_oper(self, **kwargs):
+        self._renew_sid_if_needed()
+        self.ac.modify_oper(**kwargs)
+        time.sleep(2)
+        self.update()
+        time.sleep(3)
+        self.update()
 
     # data fetch mechanism
 
