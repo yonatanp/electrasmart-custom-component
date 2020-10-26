@@ -3,6 +3,9 @@ import logging
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from typing import Any, Callable, Dict, Optional
+
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_PASSWORD,
@@ -13,6 +16,14 @@ from homeassistant.components.climate import (
     ClimateEntity,
     PLATFORM_SCHEMA,
 )
+
+from homeassistant.helpers.typing import (
+    ConfigType,
+    DiscoveryInfoType,
+    HomeAssistantType,
+)
+
+
 from homeassistant.components.climate.const import (
     CURRENT_HVAC_OFF, CURRENT_HVAC_IDLE, CURRENT_HVAC_COOL, CURRENT_HVAC_HEAT, CURRENT_HVAC_DRY,
     HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_FAN_ONLY, HVAC_MODE_DRY, HVAC_MODE_HEAT, HVAC_MODE_HEAT_COOL,
@@ -55,21 +66,26 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
-
-def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Set up the ElectraSmartClimate platform."""
-    _LOGGER.debug("Setting up the ElectraSmart climate platform")
-    imei = config.get(CONF_IMEI)
-    token = config.get(CONF_TOKEN)
-    acs = config.get(CONF_ACS)
+async def async_setup_platform(
+    hass: HomeAssistantType,
+    config: ConfigType,
+    async_add_entities: Callable,
+    discovery_info: Optional[DiscoveryInfoType] = None,
+) ->None:
     # TODO: api_verbosity config
     ElectraAPI.GLOBAL_VERBOSE = True
 
-    for ac in acs:
-        add_entities(
-            [ElectraSmartClimate(ac, imei, token)]
-            )
+    """Set up the ElectraSmartClimate platform."""
+    _LOGGER.debug("Setting up the ElectraSmart climate platform")
+    session = async_get_clientsession(hass)
+    imei = config.get(CONF_IMEI)
+    token = config.get(CONF_TOKEN)
+    acs = [ElectraSmartClimate(ac, imei, token) for ac in config.get(CONF_ACS)]
 
+    # TODO: api_verbosity config
+    ElectraAPI.GLOBAL_VERBOSE = True
+
+    async_add_entities(acs, update_before_add=True)
 
 class ElectraSmartClimate(ClimateEntity):
     SID_RENEW_INTERVAL = 20
