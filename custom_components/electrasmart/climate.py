@@ -238,6 +238,7 @@ class ElectraSmartClimate(ClimateEntity):
         _LOGGER.debug(f"setting new temperature to {temperature}")
         if temperature is None:
             return
+        temperature = int(temperature)
         with self._act_and_update():
             self.ac.modify_oper(temperature=temperature)
         _LOGGER.debug(f"new temperature was set to {temperature}")
