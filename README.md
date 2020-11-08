@@ -5,7 +5,7 @@
 ## Description
 HomeAssistant custom component to support Electra Smart air conditioners.
 
-This is based on the `electrasmart` python library. Both are in alpha stage at best. Use at your own risk and please report back your results, preferably as issues.
+This is based on the [`electrasmart`](https://github.com/yonatanp/electrasmart) python library. Both are still in beta stage. Use at your own risk and please report back your results, preferably as issues.
 
 +  Supports [HACS](https://github.com/custom-components/hacs) installation
 
@@ -42,7 +42,7 @@ climate:
     imei: "2b9500000..."
     token: "1fd4a2e86..."
     acs:
-      - id: 1234
+      - id: 12345
         name: MyLivingRoomAC
 ...
 ```
@@ -64,13 +64,11 @@ logger:
 
 See more details on the [Logger integration](https://www.home-assistant.io/integrations/logger/) in the official docs.
 
-To get even more verbose messages from the Electra API, set this configuration flag in one of your configured ElectraSmart climate entities, e.g.:
+To get detailed logging from the Electra API, enable debug logging for the `electrasmart` library:
 ```yaml
 ...
-climate:
-  - platform: electrasmart
-    ...
-    electra_api_verbose: true
+  logs:
+    custom_components.electrasmart: debug
+    electrasmart: debug
 ...
 ```
-This is a global configuration. Once activated at least once, it will stay this way until complete restart of the service.
