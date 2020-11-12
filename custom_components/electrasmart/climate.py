@@ -54,7 +54,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_IMEI): cv.string,
         vol.Required(CONF_TOKEN): cv.string,
-        vol.Optional(CONF_SID_INTERVAL, default=20): cv.string,
+        vol.Optional(CONF_SID_INTERVAL, default=20): cv.positive_int,
         vol.Required(CONF_ACS): vol.All(cv.ensure_list, [AC_SCHEMA]),
         # TODO: add presets (cool, fan, night...)
         # vol.Optional(
