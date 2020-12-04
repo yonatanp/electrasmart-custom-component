@@ -41,6 +41,7 @@ CONF_TOKEN = "token"
 CONF_ACS = "acs"
 CONF_AC_ID = "id"
 CONF_AC_NAME = "name"
+CONF_SID_INTERVAL = "sid_interval"
 
 DEFAULT_NAME = "ElectraSmart"
 
@@ -53,6 +54,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_IMEI): cv.string,
         vol.Required(CONF_TOKEN): cv.string,
+        vol.Optional(CONF_SID_INTERVAL, default=20): cv.positive_int,
         vol.Required(CONF_ACS): vol.All(cv.ensure_list, [AC_SCHEMA]),
         # TODO: add presets (cool, fan, night...)
         # vol.Optional(
@@ -79,17 +81,17 @@ async def async_setup_platform(
     session = async_get_clientsession(hass)
     imei = config.get(CONF_IMEI)
     token = config.get(CONF_TOKEN)
-    acs = [ElectraSmartClimate(ac, imei, token) for ac in config.get(CONF_ACS)]
+    sid_interval = config.get(CONF_SID_INTERVAL)
+    acs = [ElectraSmartClimate(ac, imei, token, sid_interval) for ac in config.get(CONF_ACS)]
 
     async_add_entities(acs, update_before_add=True)
 
 
 class ElectraSmartClimate(ClimateEntity):
-    SID_RENEW_INTERVAL = 20
-
-    def __init__(self, ac, imei, token):
+    def __init__(self, ac, imei, token, sid_interval):
         """Initialize the thermostat."""
         self._name = ac[CONF_AC_NAME]
+        self._sid_renew_interval = sid_interval
         self.ac = AC(imei, token, ac[CONF_AC_ID])
         self._last_sid_renew = None
 
@@ -277,7 +279,7 @@ class ElectraSmartClimate(ClimateEntity):
     # data fetch mechanism
 
     def _renew_sid_if_needed(self):
-        if self._last_sid_renew is None or time.time() - self._last_sid_renew > self.SID_RENEW_INTERVAL:
+        if self._last_sid_renew is None or time.time() - self._last_sid_renew > self._sid_renew_interval:
             _LOGGER.debug("renewing sid")
             self.ac.renew_sid()
             self._last_sid_renew = time.time()
