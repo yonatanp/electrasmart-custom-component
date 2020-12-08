@@ -122,6 +122,7 @@ class ElectraSmartClimate(ClimateEntity):
             token,
             ac[CONF_AC_ID],
             None,
+            use_shared_sid
         )
         self._last_sid_renew = None
 
