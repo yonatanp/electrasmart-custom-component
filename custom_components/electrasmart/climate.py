@@ -26,9 +26,24 @@ from homeassistant.helpers.typing import (
 
 
 from homeassistant.components.climate.const import (
-    CURRENT_HVAC_OFF, CURRENT_HVAC_IDLE, CURRENT_HVAC_COOL, CURRENT_HVAC_HEAT, CURRENT_HVAC_DRY,
-    HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_FAN_ONLY, HVAC_MODE_DRY, HVAC_MODE_HEAT, HVAC_MODE_HEAT_COOL,
-    SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE, FAN_OFF, FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_HIGH
+    CURRENT_HVAC_OFF,
+    CURRENT_HVAC_IDLE,
+    CURRENT_HVAC_COOL,
+    CURRENT_HVAC_HEAT,
+    CURRENT_HVAC_DRY,
+    HVAC_MODE_OFF,
+    HVAC_MODE_COOL,
+    HVAC_MODE_FAN_ONLY,
+    HVAC_MODE_DRY,
+    HVAC_MODE_HEAT,
+    HVAC_MODE_HEAT_COOL,
+    SUPPORT_TARGET_TEMPERATURE,
+    SUPPORT_FAN_MODE,
+    FAN_OFF,
+    FAN_AUTO,
+    FAN_LOW,
+    FAN_MEDIUM,
+    FAN_HIGH,
 )
 
 from electrasmart import AC, ElectraAPI
@@ -42,11 +57,15 @@ CONF_ACS = "acs"
 CONF_AC_ID = "id"
 CONF_AC_NAME = "name"
 CONF_SID_INTERVAL = "sid_interval"
+CONF_USE_SHARED_SID = "use_shared_sid"
 
 DEFAULT_NAME = "ElectraSmart"
 
 AC_SCHEMA = vol.Schema(
-    {vol.Required(CONF_AC_ID): cv.string, vol.Required(CONF_AC_NAME, default=DEFAULT_NAME): cv.string}
+    {
+        vol.Required(CONF_AC_ID): cv.string,
+        vol.Required(CONF_AC_NAME, default=DEFAULT_NAME): cv.string,
+    }
 )
 
 
@@ -55,6 +74,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_IMEI): cv.string,
         vol.Required(CONF_TOKEN): cv.string,
         vol.Optional(CONF_SID_INTERVAL, default=20): cv.positive_int,
+        vol.Optional(CONF_USE_SHARED_SID, default=False): cv.boolean,
         vol.Required(CONF_ACS): vol.All(cv.ensure_list, [AC_SCHEMA]),
         # TODO: add presets (cool, fan, night...)
         # vol.Optional(
@@ -75,7 +95,7 @@ async def async_setup_platform(
     config: ConfigType,
     async_add_entities: Callable,
     discovery_info: Optional[DiscoveryInfoType] = None,
-) ->None:
+) -> None:
     # Note: since this is a global thing, if at least one entity activates it, it's on
     """Set up the ElectraSmartClimate platform."""
     _LOGGER.debug("Setting up the ElectraSmart climate platform")
@@ -83,17 +103,26 @@ async def async_setup_platform(
     imei = config.get(CONF_IMEI)
     token = config.get(CONF_TOKEN)
     sid_interval = config.get(CONF_SID_INTERVAL)
-    acs = [ElectraSmartClimate(ac, imei, token, sid_interval) for ac in config.get(CONF_ACS)]
+    use_shared_sid = config.get(CONF_USE_SHARED_SID)
+    acs = [
+        ElectraSmartClimate(ac, imei, token, sid_interval, use_shared_sid)
+        for ac in config.get(CONF_ACS)
+    ]
 
     async_add_entities(acs, update_before_add=True)
 
 
 class ElectraSmartClimate(ClimateEntity):
-    def __init__(self, ac, imei, token, sid_interval):
+    def __init__(self, ac, imei, token, sid_interval, use_shared_sid):
         """Initialize the thermostat."""
         self._name = ac[CONF_AC_NAME]
         self._sid_renew_interval = sid_interval
-        self.ac = AC(imei, token, ac[CONF_AC_ID])
+        self.ac = AC(
+            imei,
+            token,
+            ac[CONF_AC_ID],
+            None,
+        )
         self._last_sid_renew = None
 
     # managed properties
@@ -155,9 +184,7 @@ class ElectraSmartClimate(ClimateEntity):
     def target_temperature_step(self):
         return 1
 
-    MODE_BY_NAME = {
-        "IDLE": CURRENT_HVAC_IDLE
-    }
+    MODE_BY_NAME = {"IDLE": CURRENT_HVAC_IDLE}
 
     HVAC_MODE_MAPPING = {
         "STBY": HVAC_MODE_OFF,
@@ -188,7 +215,14 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def hvac_modes(self):
         """HVAC modes."""
-        return [HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_FAN_ONLY, HVAC_MODE_DRY, HVAC_MODE_HEAT, HVAC_MODE_HEAT_COOL]
+        return [
+            HVAC_MODE_OFF,
+            HVAC_MODE_COOL,
+            HVAC_MODE_FAN_ONLY,
+            HVAC_MODE_DRY,
+            HVAC_MODE_HEAT,
+            HVAC_MODE_HEAT_COOL,
+        ]
 
     # TODO:!
     # @property
@@ -252,7 +286,9 @@ class ElectraSmartClimate(ClimateEntity):
             _LOGGER.debug(f"turning off ac due to hvac_mode being set to {hvac_mode}")
             with self._act_and_update():
                 self.ac.turn_off()
-            _LOGGER.debug(f"ac has been turned off due hvac_mode being set to {hvac_mode}")
+            _LOGGER.debug(
+                f"ac has been turned off due hvac_mode being set to {hvac_mode}"
+            )
         else:
             ac_mode = self.HVAC_MODE_MAPPING_INV[hvac_mode]
             _LOGGER.debug(f"setting hvac mode to {hvac_mode} (ac_mode {ac_mode})")
@@ -280,7 +316,10 @@ class ElectraSmartClimate(ClimateEntity):
     # data fetch mechanism
 
     def _renew_sid_if_needed(self):
-        if self._last_sid_renew is None or time.time() - self._last_sid_renew > self._sid_renew_interval:
+        if (
+            self._last_sid_renew is None
+            or time.time() - self._last_sid_renew > self._sid_renew_interval
+        ):
             _LOGGER.debug("renewing sid")
             self.ac.renew_sid()
             self._last_sid_renew = time.time()
