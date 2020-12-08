@@ -56,7 +56,6 @@ CONF_TOKEN = "token"
 CONF_ACS = "acs"
 CONF_AC_ID = "id"
 CONF_AC_NAME = "name"
-CONF_SID_INTERVAL = "sid_interval"
 CONF_USE_SHARED_SID = "use_shared_sid"
 
 DEFAULT_NAME = "ElectraSmart"
@@ -73,7 +72,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_IMEI): cv.string,
         vol.Required(CONF_TOKEN): cv.string,
-        vol.Optional(CONF_SID_INTERVAL, default=20): cv.positive_int,
         vol.Optional(CONF_USE_SHARED_SID, default=False): cv.boolean,
         vol.Required(CONF_ACS): vol.All(cv.ensure_list, [AC_SCHEMA]),
         # TODO: add presets (cool, fan, night...)
@@ -102,10 +100,9 @@ async def async_setup_platform(
     session = async_get_clientsession(hass)
     imei = config.get(CONF_IMEI)
     token = config.get(CONF_TOKEN)
-    sid_interval = config.get(CONF_SID_INTERVAL)
     use_shared_sid = config.get(CONF_USE_SHARED_SID)
     acs = [
-        ElectraSmartClimate(ac, imei, token, sid_interval, use_shared_sid)
+        ElectraSmartClimate(ac, imei, token, use_shared_sid)
         for ac in config.get(CONF_ACS)
     ]
 
@@ -113,18 +110,10 @@ async def async_setup_platform(
 
 
 class ElectraSmartClimate(ClimateEntity):
-    def __init__(self, ac, imei, token, sid_interval, use_shared_sid):
+    def __init__(self, ac, imei, token, use_shared_sid):
         """Initialize the thermostat."""
         self._name = ac[CONF_AC_NAME]
-        self._sid_renew_interval = sid_interval
-        self.ac = AC(
-            imei,
-            token,
-            ac[CONF_AC_ID],
-            None,
-            use_shared_sid
-        )
-        self._last_sid_renew = None
+        self.ac = AC(imei, token, ac[CONF_AC_ID], None, use_shared_sid)
 
     # managed properties
 
@@ -307,7 +296,6 @@ class ElectraSmartClimate(ClimateEntity):
 
     @contextmanager
     def _act_and_update(self):
-        self._renew_sid_if_needed()
         yield
         time.sleep(2)
         self.update()
@@ -315,19 +303,8 @@ class ElectraSmartClimate(ClimateEntity):
         self.update()
 
     # data fetch mechanism
-
-    def _renew_sid_if_needed(self):
-        if (
-            self._last_sid_renew is None
-            or time.time() - self._last_sid_renew > self._sid_renew_interval
-        ):
-            _LOGGER.debug("renewing sid")
-            self.ac.renew_sid()
-            self._last_sid_renew = time.time()
-
     def update(self):
         """Get the latest data."""
         _LOGGER.debug("Updating status using the client AC instance...")
-        self._renew_sid_if_needed()
         self.ac.update_status()
         _LOGGER.debug("Status updated using the client AC instance")
