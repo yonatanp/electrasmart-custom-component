@@ -5,5 +5,5 @@
   "dependencies": [],
   "codeowners": ["@yonatanp"],
   "requirements": ["electrasmart~=0.6.0"],
-  "version": "0.6.0"
+  "version": "v0.0.0"
 }
