@@ -41,7 +41,7 @@ climate:
   - platform: electrasmart
     imei: "2b9500000..."
     token: "1fd4a2e86..."
-    sid_interval: 60 #optional, default = 20 sec
+    use_shared_sid: true #optional, default = false
     acs:
       - id: 12345
         name: MyLivingRoomAC
