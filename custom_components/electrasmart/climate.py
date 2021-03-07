@@ -46,19 +46,20 @@ from homeassistant.components.climate.const import (
     FAN_HIGH,
 )
 
-from electrasmart import AC, ElectraAPI
+from electrasmart import AC
+from .const import (
+    CONF_AC_ID,
+    CONF_AC_NAME,
+    CONF_ACS,
+    CONF_IMEI,
+    CONF_TOKEN,
+    CONF_USE_SHARED_SID,
+    DEFAULT_NAME,
+    STARTUP
+) 
+
 
 _LOGGER = logging.getLogger(__name__)
-
-
-CONF_IMEI = "imei"
-CONF_TOKEN = "token"
-CONF_ACS = "acs"
-CONF_AC_ID = "id"
-CONF_AC_NAME = "name"
-CONF_USE_SHARED_SID = "use_shared_sid"
-
-DEFAULT_NAME = "ElectraSmart"
 
 AC_SCHEMA = vol.Schema(
     {
@@ -95,6 +96,8 @@ async def async_setup_platform(
     discovery_info: Optional[DiscoveryInfoType] = None,
 ) -> None:
     # Note: since this is a global thing, if at least one entity activates it, it's on
+    _LOGGER.info(STARTUP)
+
     """Set up the ElectraSmartClimate platform."""
     _LOGGER.debug("Setting up the ElectraSmart climate platform")
     session = async_get_clientsession(hass)
