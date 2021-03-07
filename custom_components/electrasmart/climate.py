@@ -55,8 +55,8 @@ from .const import (
     CONF_TOKEN,
     CONF_USE_SHARED_SID,
     DEFAULT_NAME,
-    STARTUP
-) 
+    STARTUP,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
