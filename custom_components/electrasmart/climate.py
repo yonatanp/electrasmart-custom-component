@@ -1,5 +1,6 @@
 import time
 import logging
+import json
 from contextlib import contextmanager
 
 import homeassistant.helpers.config_validation as cv
@@ -39,12 +40,17 @@ from homeassistant.components.climate.const import (
     HVAC_MODE_HEAT_COOL,
     SUPPORT_TARGET_TEMPERATURE,
     SUPPORT_FAN_MODE,
+    SUPPORT_PRESET_MODE,
     FAN_OFF,
     FAN_AUTO,
     FAN_LOW,
     FAN_MEDIUM,
     FAN_HIGH,
+    PRESET_NONE,
+    PRESET_SLEEP,
 )
+
+PRESET_SHABAT = "SHABAT"
 
 from electrasmart import AC, ElectraAPI
 
@@ -114,6 +120,7 @@ class ElectraSmartClimate(ClimateEntity):
         """Initialize the thermostat."""
         self._name = ac[CONF_AC_NAME]
         self.ac = AC(imei, token, ac[CONF_AC_ID], None, use_shared_sid)
+        self._attr_preset_mode = PRESET_NONE
 
     # managed properties
 
@@ -214,6 +221,22 @@ class ElectraSmartClimate(ClimateEntity):
             HVAC_MODE_HEAT_COOL,
         ]
 
+    @property
+    def preset_modes(self):
+        """PRESET modes."""
+        return [
+            PRESET_NONE,
+            PRESET_SLEEP,
+            PRESET_SHABAT,
+        ]
+
+    PRESET_MODE_MAPPING = {
+        "SHABAT": PRESET_SHABAT,
+        "SLEEP": PRESET_SLEEP,
+    }
+
+    PRESET_MODE_MAPPING_INV = {v: k for k, v in PRESET_MODE_MAPPING.items()}
+
     # TODO:!
     # @property
     # def hvac_action(self):
@@ -255,7 +278,7 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return SUPPORT_TARGET_TEMPERATURE | SUPPORT_FAN_MODE
+        return SUPPORT_TARGET_TEMPERATURE | SUPPORT_FAN_MODE | SUPPORT_PRESET_MODE
 
     # actions
 
@@ -293,6 +316,32 @@ class ElectraSmartClimate(ClimateEntity):
         with self._act_and_update():
             self.ac.modify_oper(fan_speed=fan_speed)
         _LOGGER.debug(f"fan mode was set to {fan_mode} (fan_speed {fan_speed})")
+
+    def set_preset_mode(self, preset_mode):
+        _LOGGER.debug(f"setting preset mode to {preset_mode}")
+        if preset_mode not in self.preset_modes:
+            _LOGGER.debug(f"preset mode '{preset_mode}' not in '{', '.join(self.preset_modes)}'")
+            return
+
+        # I'm deeply sorry this is ugly, need to update also the lib
+        self.ac.update_status()
+        new_oper = self.ac.status.raw["OPER"]["OPER"].copy()
+
+        if preset_mode == PRESET_SHABAT:
+            new_oper[self.PRESET_MODE_MAPPING_INV[PRESET_SHABAT]] = "ON"
+        elif preset_mode == PRESET_SLEEP:
+            new_oper[self.PRESET_MODE_MAPPING_INV[PRESET_SLEEP]] = "ON"
+        for preset in self.preset_modes:
+            if preset == preset_mode or preset == PRESET_NONE:
+                continue
+            new_oper[self.PRESET_MODE_MAPPING_INV[preset]] = "OFF"
+
+        self.ac._post_with_sid_check(
+            "SEND_COMMAND",
+            dict(id=self.ac.ac_id, commandJson=json.dumps({"OPER": new_oper})),
+        )
+
+        _LOGGER.debug(f"preset mode was set to {preset_mode}")
 
     @contextmanager
     def _act_and_update(self):
