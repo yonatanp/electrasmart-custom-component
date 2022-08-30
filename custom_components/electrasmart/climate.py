@@ -173,6 +173,14 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def target_temperature_step(self):
         return 1
+    
+    @property
+    def target_temperature_low(self):
+        return self.target_temperature()
+
+    @property
+    def target_temperature_high(self):
+        return self.target_temperature()
 
     MODE_BY_NAME = {"IDLE": CURRENT_HVAC_IDLE}
 
