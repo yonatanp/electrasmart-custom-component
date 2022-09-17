@@ -51,6 +51,7 @@ from homeassistant.components.climate.const import (
 )
 
 PRESET_SHABAT = "SHABAT"
+PRESET_IFEEL = "IFEEL"
 
 from electrasmart import AC, ElectraAPI
 
@@ -228,11 +229,13 @@ class ElectraSmartClimate(ClimateEntity):
             PRESET_NONE,
             PRESET_SLEEP,
             PRESET_SHABAT,
+            PRESET_IFEEL,
         ]
 
     PRESET_MODE_MAPPING = {
         "SHABAT": PRESET_SHABAT,
         "SLEEP": PRESET_SLEEP,
+        "IFEEL": PRESET_IFEEL,
     }
 
     PRESET_MODE_MAPPING_INV = {v: k for k, v in PRESET_MODE_MAPPING.items()}
@@ -323,25 +326,26 @@ class ElectraSmartClimate(ClimateEntity):
             _LOGGER.debug(f"preset mode '{preset_mode}' not in '{', '.join(self.preset_modes)}'")
             return
 
-        # I'm deeply sorry this is ugly, need to update also the lib
-        self.ac.update_status()
-        new_oper = self.ac.status.raw["OPER"]["OPER"].copy()
+        try:
+            kwargs_fun = {}
 
-        if preset_mode == PRESET_SHABAT:
-            new_oper[self.PRESET_MODE_MAPPING_INV[PRESET_SHABAT]] = "ON"
-        elif preset_mode == PRESET_SLEEP:
-            new_oper[self.PRESET_MODE_MAPPING_INV[PRESET_SLEEP]] = "ON"
-        for preset in self.preset_modes:
-            if preset == preset_mode or preset == PRESET_NONE:
-                continue
-            new_oper[self.PRESET_MODE_MAPPING_INV[preset]] = "OFF"
+            if preset_mode == PRESET_SHABAT:
+                kwargs_fun[PRESET_SHABAT] = "ON"
+            elif preset_mode == PRESET_SLEEP:
+                kwargs_fun[PRESET_SLEEP] = "ON"
+            elif preset_mode == PRESET_IFEEL:
+                kwargs_fun[PRESET_IFEEL] = "ON"
+            for preset in self.preset_modes:
+                if preset == preset_mode or preset == PRESET_NONE:
+                    continue
+                kwargs_fun[preset] = "OFF"
 
-        self.ac._post_with_sid_check(
-            "SEND_COMMAND",
-            dict(id=self.ac.ac_id, commandJson=json.dumps({"OPER": new_oper})),
-        )
+            self.ac.modify_oper(kwargs_fun)
 
-        _LOGGER.debug(f"preset mode was set to {preset_mode}")
+            _LOGGER.debug(f"preset mode was set to {preset_mode}")
+        except TypeError:
+            _LOGGER.debug(f"preset mode was NOT set to {preset_mode}, try updating 'electrasmart'")
+            pass
 
     @contextmanager
     def _act_and_update(self):
@@ -356,4 +360,20 @@ class ElectraSmartClimate(ClimateEntity):
         """Get the latest data."""
         _LOGGER.debug("Updating status using the client AC instance...")
         self.ac.update_status()
+
+        try:
+            if self.ac.status.shabat == 'ON':
+                self._attr_preset_mode = PRESET_SHABAT
+            elif self.ac.status.ifeel == 'ON':
+                self._attr_preset_mode = PRESET_IFEEL
+            elif self.ac.status.sleep == 'ON':
+                self._attr_preset_mode = PRESET_SLEEP
+            else:
+                self._attr_preset_mode = PRESET_NONE
+
+        except TypeError:
+            _LOGGER.debug(f"preset mode can't be set, try updating 'electrasmart'")
+            self._attr_preset_mode = PRESET_NONE
+            pass
+
         _LOGGER.debug("Status updated using the client AC instance")
