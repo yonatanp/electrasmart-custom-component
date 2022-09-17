@@ -121,6 +121,7 @@ class ElectraSmartClimate(ClimateEntity):
         """Initialize the thermostat."""
         self._name = ac[CONF_AC_NAME]
         self.ac = AC(imei, token, ac[CONF_AC_ID], None, use_shared_sid)
+        self._attr_preset_mode = PRESET_NONE
 
     # managed properties
 
@@ -359,4 +360,14 @@ class ElectraSmartClimate(ClimateEntity):
         """Get the latest data."""
         _LOGGER.debug("Updating status using the client AC instance...")
         self.ac.update_status()
+
+        if self.ac.status.shabat == 'ON':
+            self._attr_preset_mode = PRESET_SHABAT
+        elif self.ac.status.ifeel == 'ON':
+            self._attr_preset_mode = PRESET_IFEEL
+        elif self.ac.status.sleep == 'ON':
+            self._attr_preset_mode = PRESET_SLEEP
+        else:
+            self._attr_preset_mode = PRESET_NONE
+
         _LOGGER.debug("Status updated using the client AC instance")
