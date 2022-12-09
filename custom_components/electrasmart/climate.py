@@ -50,8 +50,12 @@ from homeassistant.components.climate.const import (
     PRESET_SLEEP,
 )
 
-PRESET_SHABAT = "SHABAT"
-PRESET_IFEEL = "IFEEL"
+PRESET_SHABAT = "Shabat"
+PRESET_IFEEL = "IFeel"
+PRESET_SHABAT_SLEEP = "Shabat, Sleep"
+PRESET_SHABAT_IFEEL = "Shabat, IFeel"
+PRESET_SLEEP_IFEEL = "Sleep, IFeel"
+PRESET_SHABAT_SLEEP_IFEEL = "Shabat, Sleep, IFeel"
 
 from electrasmart import AC, ElectraAPI
 
@@ -121,7 +125,6 @@ class ElectraSmartClimate(ClimateEntity):
         """Initialize the thermostat."""
         self._name = ac[CONF_AC_NAME]
         self.ac = AC(imei, token, ac[CONF_AC_ID], None, use_shared_sid)
-        self._attr_preset_mode = PRESET_NONE
 
     # managed properties
 
@@ -227,10 +230,27 @@ class ElectraSmartClimate(ClimateEntity):
         """PRESET modes."""
         return [
             PRESET_NONE,
-            PRESET_SLEEP,
             PRESET_SHABAT,
+            PRESET_SLEEP,
+            PRESET_SHABAT_SLEEP,
             PRESET_IFEEL,
+            PRESET_SHABAT_IFEEL,
+            PRESET_SLEEP_IFEEL,
+            PRESET_SHABAT_SLEEP_IFEEL,
         ]
+
+    PRESET_MODE_ID = {
+        PRESET_NONE: 0,
+        PRESET_SHABAT: 1,
+        PRESET_SLEEP: 2,
+        PRESET_SHABAT_SLEEP: 3,
+        PRESET_IFEEL: 4,
+        PRESET_SHABAT_IFEEL: 5,
+        PRESET_SLEEP_IFEEL: 6,
+        PRESET_SHABAT_SLEEP_IFEEL: 7,
+    }
+
+    PRESET_MODE_ID_INV = {v: k for k, v in PRESET_MODE_ID.items()}
 
     PRESET_MODE_MAPPING = {
         "SHABAT": PRESET_SHABAT,
@@ -238,7 +258,33 @@ class ElectraSmartClimate(ClimateEntity):
         "IFEEL": PRESET_IFEEL,
     }
 
+    PRESET_MODE_MAPPING_ARGS = {
+        PRESET_SHABAT: "shabat",
+        PRESET_SLEEP: "ac_sleep",
+        PRESET_IFEEL: "ifeel",
+    }
+
     PRESET_MODE_MAPPING_INV = {v: k for k, v in PRESET_MODE_MAPPING.items()}
+
+    PRESET_MODE_MAPPING_ATTR = {p: p.lower() for p in PRESET_MODE_MAPPING.keys()}
+
+    @property
+    def preset_mode(self):
+        """Returns the current preset mode"""
+        if self.ac.status is None:
+            _LOGGER.debug(f"preset_mode: status is None, returning None")
+            return None
+        if self.ac.status.is_on:
+            preset_mode_bit = 0
+            for p in self.PRESET_MODE_MAPPING.keys():
+                if getattr(self.ac.status, self.PRESET_MODE_MAPPING_ATTR[p]) == "ON":
+                    preset_mode_bit += self.PRESET_MODE_ID[self.PRESET_MODE_MAPPING[p]]
+            preset_mode = self.PRESET_MODE_ID_INV[preset_mode_bit]
+            _LOGGER.debug(f"preset_mode: returning {preset_mode}")
+            return preset_mode
+        else:
+            _LOGGER.debug(f"preset_mode: returning PRESET_NONE - device is off")
+            return PRESET_NONE
 
     # TODO:!
     # @property
@@ -326,26 +372,15 @@ class ElectraSmartClimate(ClimateEntity):
             _LOGGER.debug(f"preset mode '{preset_mode}' not in '{', '.join(self.preset_modes)}'")
             return
 
-        try:
-            kwargs_fun = {}
+        kwargs = {
+            self.PRESET_MODE_MAPPING_ARGS[self.PRESET_MODE_MAPPING[pm]]:
+                "ON" if pm.lower() in preset_mode.lower() else "OFF"
+            for pm in self.PRESET_MODE_MAPPING.keys()
+            if pm != PRESET_NONE
+        }
 
-            if preset_mode == PRESET_SHABAT:
-                kwargs_fun[PRESET_SHABAT] = "ON"
-            elif preset_mode == PRESET_SLEEP:
-                kwargs_fun[PRESET_SLEEP] = "ON"
-            elif preset_mode == PRESET_IFEEL:
-                kwargs_fun[PRESET_IFEEL] = "ON"
-            for preset in self.preset_modes:
-                if preset == preset_mode or preset == PRESET_NONE:
-                    continue
-                kwargs_fun[preset] = "OFF"
-
-            self.ac.modify_oper(kwargs_fun)
-
-            _LOGGER.debug(f"preset mode was set to {preset_mode}")
-        except TypeError:
-            _LOGGER.debug(f"preset mode was NOT set to {preset_mode}, try updating 'electrasmart'")
-            pass
+        self.ac.modify_oper(**kwargs)
+        _LOGGER.debug(f"preset mode was set to {preset_mode}")
 
     @contextmanager
     def _act_and_update(self):
@@ -360,20 +395,4 @@ class ElectraSmartClimate(ClimateEntity):
         """Get the latest data."""
         _LOGGER.debug("Updating status using the client AC instance...")
         self.ac.update_status()
-
-        try:
-            if self.ac.status.shabat == 'ON':
-                self._attr_preset_mode = PRESET_SHABAT
-            elif self.ac.status.ifeel == 'ON':
-                self._attr_preset_mode = PRESET_IFEEL
-            elif self.ac.status.sleep == 'ON':
-                self._attr_preset_mode = PRESET_SLEEP
-            else:
-                self._attr_preset_mode = PRESET_NONE
-
-        except TypeError:
-            _LOGGER.debug(f"preset mode can't be set, try updating 'electrasmart'")
-            self._attr_preset_mode = PRESET_NONE
-            pass
-
         _LOGGER.debug("Status updated using the client AC instance")
