@@ -2,6 +2,7 @@ import time
 import logging
 import json
 from contextlib import contextmanager
+from datetime import timedelta
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -56,6 +57,8 @@ PRESET_SHABAT_SLEEP = "Shabat, Sleep"
 PRESET_SHABAT_IFEEL = "Shabat, IFeel"
 PRESET_SLEEP_IFEEL = "Sleep, IFeel"
 PRESET_SHABAT_SLEEP_IFEEL = "Shabat, Sleep, IFeel"
+
+SCAN_INTERVAL = timedelta(seconds=5)
 
 from electrasmart import AC, ElectraAPI
 
@@ -389,6 +392,14 @@ class ElectraSmartClimate(ClimateEntity):
         self.update()
         time.sleep(3)
         self.update()
+
+    # data fetch mechanism
+    async def async_update(self):
+        """Get the latest data."""
+        _LOGGER.debug("[ASYNC] Updating status using the client AC instance...")
+        await self.ac.async_update_status()
+        schedule_update_ha_state()
+        _LOGGER.debug("[ASYNC] Status updated using the client AC instance")
 
     # data fetch mechanism
     def update(self):
