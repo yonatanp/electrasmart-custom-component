@@ -50,6 +50,21 @@ climate:
 
 Note: if you want to configure multiple ACs under the same account, this is possible. Do it in the same way you configure multiple instances of the same type of platform in HomeAssistant (e.g. add another item under climate). The `imei` and `token` values should be the same for both ACs.
 
+### Modify default scan interval
+
+The current default scan interval is 60 seconds, to change this value, add a `scan_interval` parameter to the `configuration.yaml` such as the following:
+
+
+```yaml
+...
+climate:
+  - platform: electrasmart
+    scan_interval: 10
+...
+```
+
+See more details on the [Scan Interval](https://www.home-assistant.io/docs/configuration/platform_options/#scan-interval) in the official docs.
+
 ## Troubleshooting
 
 It might not work out of the box just yet. It is recommended that you enable detailed logging by adding the following configuration to your `configuration.yaml` while debugging the setup process:
