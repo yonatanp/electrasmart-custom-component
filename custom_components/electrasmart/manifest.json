@@ -4,6 +4,6 @@
   "documentation": "https://pypi.org/project/electrasmart/#hass_component",
   "dependencies": [],
   "codeowners": ["@yonatanp"],
-  "requirements": ["electrasmart~=0.9.0"],
+  "requirements": ["electrasmart~=0.8.0"],
   "version": "2022.4.25"
 }

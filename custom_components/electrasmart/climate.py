@@ -2,7 +2,6 @@ import time
 import logging
 import json
 from contextlib import contextmanager
-from datetime import timedelta
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -58,8 +57,6 @@ PRESET_SHABAT_SLEEP = "Shabat, Sleep"
 PRESET_SHABAT_IFEEL = "Shabat, IFeel"
 PRESET_SLEEP_IFEEL = "Sleep, IFeel"
 PRESET_SHABAT_SLEEP_IFEEL = "Shabat, Sleep, IFeel"
-
-SCAN_INTERVAL = timedelta(seconds=5)
 
 from electrasmart import AC, ElectraAPI
 
