@@ -8,6 +8,7 @@ import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from typing import Any, Callable, Dict, Optional
+import datetime
 
 from homeassistant.const import (
     ATTR_TEMPERATURE,
@@ -342,7 +343,7 @@ class ElectraSmartClimate(ClimateEntity):
             return
         temperature = int(temperature)
         with self._act_and_update():
-            self.ac.modify_oper(temperature=temperature)
+            self.ac.modify_oper(temperature=temperature, update_status=False)
         _LOGGER.debug(f"new temperature was set to {temperature}")
 
     def set_hvac_mode(self, hvac_mode):
@@ -350,7 +351,7 @@ class ElectraSmartClimate(ClimateEntity):
         if hvac_mode == HVAC_MODE_OFF:
             _LOGGER.debug(f"turning off ac due to hvac_mode being set to {hvac_mode}")
             with self._act_and_update():
-                self.ac.turn_off()
+                self.ac.turn_off(update_status=False)
             _LOGGER.debug(
                 f"ac has been turned off due hvac_mode being set to {hvac_mode}"
             )
@@ -358,7 +359,7 @@ class ElectraSmartClimate(ClimateEntity):
             ac_mode = self.HVAC_MODE_MAPPING_INV[hvac_mode]
             _LOGGER.debug(f"setting hvac mode to {hvac_mode} (ac_mode {ac_mode})")
             with self._act_and_update():
-                self.ac.modify_oper(ac_mode=ac_mode)
+                self.ac.modify_oper(ac_mode=ac_mode, update_status=False)
             _LOGGER.debug(f"hvac mode was set to {hvac_mode} (ac_mode {ac_mode})")
 
     def set_fan_mode(self, fan_mode):
@@ -366,7 +367,7 @@ class ElectraSmartClimate(ClimateEntity):
         fan_speed = self.FAN_MODE_MAPPING_INV[fan_mode]
         _LOGGER.debug(f"setting fan mode to {fan_mode} (fan_speed {fan_speed})")
         with self._act_and_update():
-            self.ac.modify_oper(fan_speed=fan_speed)
+            self.ac.modify_oper(fan_speed=fan_speed, update_status=False)
         _LOGGER.debug(f"fan mode was set to {fan_mode} (fan_speed {fan_speed})")
 
     def set_preset_mode(self, preset_mode):
@@ -398,7 +399,6 @@ class ElectraSmartClimate(ClimateEntity):
         """Get the latest data."""
         _LOGGER.debug("[ASYNC] Updating status using the client AC instance...")
         await self.ac.async_update_status()
-        schedule_update_ha_state()
         _LOGGER.debug("[ASYNC] Status updated using the client AC instance")
 
     # data fetch mechanism
