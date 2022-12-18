@@ -48,10 +48,10 @@ from homeassistant.components.climate.const import (
     FAN_MEDIUM,
     FAN_HIGH,
     PRESET_NONE,
-    PRESET_SLEEP,
 )
 
 PRESET_SHABAT = "Shabat"
+PRESET_SLEEP = "Sleep"
 PRESET_IFEEL = "IFeel"
 PRESET_SHABAT_SLEEP = "Shabat, Sleep"
 PRESET_SHABAT_IFEEL = "Shabat, IFeel"
