@@ -7,38 +7,29 @@ import voluptuous as vol
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from typing import Any, Callable, Dict, Optional
 
+from homeassistant.core import HomeAssistant
+
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_PASSWORD,
     CONF_USERNAME,
-    TEMP_CELSIUS,
 )
 from homeassistant.components.climate import (
     ClimateEntity,
+    ClimateEntityFeature,
+    HVACAction,
+    HVACMode,
+    UnitOfTemperature,
     PLATFORM_SCHEMA,
 )
 
 from homeassistant.helpers.typing import (
     ConfigType,
-    DiscoveryInfoType,
-    HomeAssistantType,
+    DiscoveryInfoType
 )
 
 
 from homeassistant.components.climate.const import (
-    CURRENT_HVAC_OFF,
-    CURRENT_HVAC_IDLE,
-    CURRENT_HVAC_COOL,
-    CURRENT_HVAC_HEAT,
-    CURRENT_HVAC_DRY,
-    HVAC_MODE_OFF,
-    HVAC_MODE_COOL,
-    HVAC_MODE_FAN_ONLY,
-    HVAC_MODE_DRY,
-    HVAC_MODE_HEAT,
-    HVAC_MODE_HEAT_COOL,
-    SUPPORT_TARGET_TEMPERATURE,
-    SUPPORT_FAN_MODE,
     FAN_OFF,
     FAN_AUTO,
     FAN_LOW,
@@ -89,7 +80,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 
 async def async_setup_platform(
-    hass: HomeAssistantType,
+    hass: HomeAssistant,
     config: ConfigType,
     async_add_entities: Callable,
     discovery_info: Optional[DiscoveryInfoType] = None,
@@ -111,6 +102,7 @@ async def async_setup_platform(
 
 class ElectraSmartClimate(ClimateEntity):
     def __init__(self, ac, imei, token, use_shared_sid):
+        self._enable_turn_on_off_backwards_compatibility = False
         """Initialize the thermostat."""
         self._name = ac[CONF_AC_NAME]
         self.ac = AC(imei, token, ac[CONF_AC_ID], None, use_shared_sid)
@@ -144,7 +136,7 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def temperature_unit(self):
         """Return the unit of measurement."""
-        return TEMP_CELSIUS
+        return UnitOfTemperature.CELSIUS
 
     @property
     def current_temperature(self):
@@ -171,18 +163,26 @@ class ElectraSmartClimate(ClimateEntity):
         return value
 
     @property
+    def target_temperature_low(self):
+        return self.target_temperature()
+ 
+    @property
+    def target_temperature_high(self):
+        return self.target_temperature()
+
+    @property
     def target_temperature_step(self):
         return 1
 
-    MODE_BY_NAME = {"IDLE": CURRENT_HVAC_IDLE}
+    MODE_BY_NAME = {"IDLE": HVACAction.IDLE}
 
     HVAC_MODE_MAPPING = {
-        "STBY": HVAC_MODE_OFF,
-        "COOL": HVAC_MODE_COOL,
-        "FAN": HVAC_MODE_FAN_ONLY,
-        "DRY": HVAC_MODE_DRY,
-        "HEAT": HVAC_MODE_HEAT,
-        "AUTO": HVAC_MODE_HEAT_COOL,
+        "STBY": HVACMode.OFF,
+        "COOL": HVACMode.COOL,
+        "FAN": HVACMode.FAN_ONLY,
+        "DRY": HVACMode.DRY,
+        "HEAT": HVACMode.HEAT,
+        "AUTO": HVACMode.HEAT_COOL,
     }
 
     HVAC_MODE_MAPPING_INV = {v: k for k, v in HVAC_MODE_MAPPING.items()}
@@ -199,19 +199,19 @@ class ElectraSmartClimate(ClimateEntity):
             _LOGGER.debug(f"hvac_mode: returning {value} (derived from {ac_mode})")
             return value
         else:
-            _LOGGER.debug(f"hvac_mode: returning HVAC_MODE_OFF - device is off")
-            return HVAC_MODE_OFF
+            _LOGGER.debug(f"hvac_mode: returning HVACMode.OFF - device is off")
+            return HVACMode.OFF
 
     @property
     def hvac_modes(self):
         """HVAC modes."""
         return [
-            HVAC_MODE_OFF,
-            HVAC_MODE_COOL,
-            HVAC_MODE_FAN_ONLY,
-            HVAC_MODE_DRY,
-            HVAC_MODE_HEAT,
-            HVAC_MODE_HEAT_COOL,
+            HVACMode.OFF,
+            HVACMode.COOL,
+            HVACMode.FAN_ONLY,
+            HVACMode.DRY,
+            HVACMode.HEAT,
+            HVACMode.HEAT_COOL,
         ]
 
     # TODO:!
@@ -219,9 +219,9 @@ class ElectraSmartClimate(ClimateEntity):
     # def hvac_action(self):
     #     """Return the current running hvac operation."""
     #     # if self._target_temperature < self._current_temperature:
-    #     #     return CURRENT_HVAC_IDLE
-    #     # return CURRENT_HVAC_HEAT
-    #     return CURRENT_HVAC_IDLE
+    #     #     return HVACAction.IDLE
+    #     # return HVACAction.HEAT
+    #     return HVACAction.IDLE
 
     FAN_MODE_MAPPING = {
         "LOW": FAN_LOW,
@@ -255,7 +255,7 @@ class ElectraSmartClimate(ClimateEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return SUPPORT_TARGET_TEMPERATURE | SUPPORT_FAN_MODE
+        return ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE | ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
 
     # actions
 
@@ -272,7 +272,7 @@ class ElectraSmartClimate(ClimateEntity):
 
     def set_hvac_mode(self, hvac_mode):
         _LOGGER.debug(f"setting hvac mode to {hvac_mode}")
-        if hvac_mode == HVAC_MODE_OFF:
+        if hvac_mode == HVACMode.OFF:
             _LOGGER.debug(f"turning off ac due to hvac_mode being set to {hvac_mode}")
             with self._act_and_update():
                 self.ac.turn_off()
@@ -297,9 +297,9 @@ class ElectraSmartClimate(ClimateEntity):
     @contextmanager
     def _act_and_update(self):
         yield
-        time.sleep(2)
-        self.update()
         time.sleep(3)
+        self.update()
+        time.sleep(1)
         self.update()
 
     # data fetch mechanism
