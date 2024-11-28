@@ -303,6 +303,13 @@ class ElectraSmartClimate(ClimateEntity):
         self.update()
 
     # data fetch mechanism
+    async def async_update(self):
+        """Get the latest data."""
+        _LOGGER.debug("[ASYNC] Updating status using the client AC instance...")
+        await self.ac.async_update_status()
+        _LOGGER.debug("[ASYNC] Status updated using the client AC instance")
+
+    # data fetch mechanism
     def update(self):
         """Get the latest data."""
         _LOGGER.debug("Updating status using the client AC instance...")
