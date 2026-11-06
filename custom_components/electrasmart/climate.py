@@ -13,13 +13,13 @@ from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_PASSWORD,
     CONF_USERNAME,
+    UnitOfTemperature,
 )
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
     HVACAction,
     HVACMode,
-    UnitOfTemperature,
     PLATFORM_SCHEMA,
 )
 
